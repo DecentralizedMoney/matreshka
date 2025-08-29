@@ -1,0 +1,59 @@
+{
+  "name": "matreshka-arbitrage-system",
+  "version": "1.0.0",
+  "description": "Advanced Multi-Exchange Arbitrage System",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "monitor": "npm run dev -- --mode=monitor",
+    "execute": "npm run dev -- --mode=execute"
+  },
+  "keywords": [
+    "arbitrage",
+    "cryptocurrency",
+    "trading",
+    "hummingbot",
+    "multi-exchange"
+  ],
+  "author": "BRICS.trading Team",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.2",
+    "ws": "^8.14.2",
+    "node-fetch": "^3.3.2",
+    "lodash": "^4.17.21",
+    "moment": "^2.29.4",
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0",
+    "redis": "^4.6.10",
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4",
+    "dotenv": "^16.3.1",
+    "joi": "^17.11.0",
+    "mathjs": "^12.2.0",
+    "bignumber.js": "^9.1.2",
+    "ccxt": "^4.1.64",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.10",
+    "@types/express": "^4.17.21",
+    "@types/lodash": "^4.14.201",
+    "@types/uuid": "^9.0.7",
+    "@types/ws": "^8.5.8",
+    "@typescript-eslint/eslint-plugin": "^6.10.0",
+    "@typescript-eslint/parser": "^6.10.0",
+    "typescript": "^5.2.2",
+    "ts-node-dev": "^2.0.0",
+    "eslint": "^8.53.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.8"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  # Matreshka Core System
+  matreshka-core:
+    build:
+      context: .
+      target: production
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - HUMMINGBOT_HOST=hummingbot-gateway
+      - HUMMINGBOT_PORT=8080
+    depends_on:
+      - redis
+      - hummingbot-gateway
+    volumes:
+      - ./logs:/app/logs
+      - ./config:/app/config
+    restart: unless-stopped
+    networks:
+      - matreshka-network
+
+  # Hummingbot Gateway
+  hummingbot-gateway:
+    image: hummingbot/gateway:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - GATEWAY_PASSPHRASE=your-secure-passphrase
+      - GATEWAY_PORT=8080
+    volumes:
+      - ./hummingbot-gateway/conf:/home/hummingbot/gateway/conf
+      - ./hummingbot-gateway/logs:/home/hummingbot/gateway/logs
+    restart: unless-stopped
+    networks:
+      - matreshka-network
+
+  # Hummingbot Instance 1 (Maker)
+  hummingbot-maker:
+    image: hummingbot/hummingbot:latest
+    environment:
+      - CONFIG_FILE_NAME=dman_strategy_config.yml
+      - TEMPLATE=dman_v2
+    volumes:
+      - ./hummingbot-instances/maker/conf:/home/hummingbot/conf
+      - ./hummingbot-instances/maker/data:/home/hummingbot/data
+      - ./hummingbot-instances/maker/logs:/home/hummingbot/logs
+    depends_on:
+      - hummingbot-gateway
+    restart: unless-stopped
+    networks:
+      - matreshka-network
+
+  # Hummingbot Instance 2 (Taker)
+  hummingbot-taker:
+    image: hummingbot/hummingbot:latest
+    environment:
+      - CONFIG_FILE_NAME=dman_taker_config.yml
+      - TEMPLATE=dman_v2
+    volumes:
+      - ./hummingbot-instances/taker/conf:/home/hummingbot/conf
+      - ./hummingbot-instances/taker/data:/home/hummingbot/data
+      - ./hummingbot-instances/taker/logs:/home/hummingbot/logs
+    depends_on:
+      - hummingbot-gateway
+    restart: unless-stopped
+    networks:
+      - matreshka-network
+
+  # Redis for caching and inter-service communication
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - matreshka-network
+
+  # PostgreSQL for persistent data
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=matreshka
+      - POSTGRES_USER=matreshka
+      - POSTGRES_PASSWORD=matreshka
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - matreshka-network
+
+  # Grafana for monitoring
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - matreshka-network
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - matreshka-network
+
+volumes:
+  redis_data:
+  postgres_data:
+  grafana_data:
+  prometheus_data:
+
+networks:
+  matreshka-network:
+    driver: bridge
