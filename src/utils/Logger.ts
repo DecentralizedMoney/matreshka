@@ -18,7 +18,25 @@ export class Logger {
         let log = `${timestamp} [${this.component}] ${level.toUpperCase()}: ${message}`;
         
         if (Object.keys(meta).length > 0) {
-          log += ` ${JSON.stringify(meta)}`;
+          try {
+            log += ` ${JSON.stringify(meta, (key, value) => {
+              // Handle circular references and complex objects
+              if (value instanceof Error) {
+                return { name: value.name, message: value.message };
+              }
+              if (typeof value === 'object' && value !== null) {
+                if (value.constructor && value.constructor.name === 'Agent') {
+                  return '[HTTP Agent]';
+                }
+                if (value.constructor && value.constructor.name === 'ClientRequest') {
+                  return '[HTTP Request]';
+                }
+              }
+              return value;
+            })}`;
+          } catch (err) {
+            log += ` [Complex Object]`;
+          }
         }
         
         if (stack) {

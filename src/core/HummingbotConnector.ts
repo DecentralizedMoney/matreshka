@@ -48,6 +48,12 @@ export class HummingbotConnector extends EventEmitter {
     try {
       this.logger.info('Connecting to Hummingbot instances...');
 
+      if (this.config.instances.length === 0) {
+        this.logger.info('No Hummingbot instances configured - running in standalone mode');
+        this.connected = true;
+        return;
+      }
+
       // Connect to each instance
       for (const instance of this.config.instances) {
         await this.connectToInstance(instance);
@@ -61,6 +67,11 @@ export class HummingbotConnector extends EventEmitter {
       
     } catch (error) {
       this.logger.error('Failed to connect to Hummingbot:', error);
+      // Don't throw error in demo mode
+      if (this.config.instances.length === 0) {
+        this.connected = true;
+        return;
+      }
       throw error;
     }
   }
@@ -224,6 +235,11 @@ export class HummingbotConnector extends EventEmitter {
   }
 
   public async checkStrategies(): Promise<void> {
+    if (this.instances.size === 0) {
+      this.logger.debug('No Hummingbot instances to check');
+      return;
+    }
+
     for (const [instanceId, instance] of this.instances) {
       try {
         const status = await this.getInstanceStatus(instanceId);
@@ -232,7 +248,7 @@ export class HummingbotConnector extends EventEmitter {
           this.emit('strategyUpdate', instanceId, status.status, status);
         }
       } catch (error) {
-        this.logger.error(`Failed to check strategy status for ${instanceId}:`, error);
+        this.logger.debug(`Failed to check strategy status for ${instanceId}: connection refused (expected in demo mode)`);
       }
     }
   }

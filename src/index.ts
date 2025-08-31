@@ -128,47 +128,7 @@ const defaultConfig: MatreshkaConfig = {
     minCashReserve: 10000
   },
   hummingbot: {
-    instances: [
-      {
-        id: 'hb_maker_1',
-        name: 'WhiteBit Maker',
-        strategy: 'dman_v2',
-        exchange: 'whitebit',
-        symbol: 'XRP-USDT',
-        config: {
-          order_amount: 10,
-          n_levels: 3,
-          spread_ratio_increase: 2.0
-        },
-        status: 'stopped',
-        assignedRole: 'maker'
-      },
-      {
-        id: 'hb_taker_1',
-        name: 'Binance Taker',
-        strategy: 'dman_v2',
-        exchange: 'binance_perpetual',
-        symbol: 'XRP-USDT',
-        config: {
-          order_amount: 10,
-          leverage: 5
-        },
-        status: 'stopped',
-        assignedRole: 'taker'
-      },
-      {
-        id: 'hb_monitor_1',
-        name: 'Market Monitor',
-        strategy: 'markets_monitor',
-        exchange: 'binance',
-        symbol: 'BTC-USDT',
-        config: {
-          monitoring_pairs: ['BTC/USDT', 'ETH/USDT']
-        },
-        status: 'stopped',
-        assignedRole: 'monitor'
-      }
-    ],
+    instances: [], // Disabled for demo mode
     communication: {
       host: process.env['HUMMINGBOT_HOST'] || 'localhost',
       port: parseInt(process.env['HUMMINGBOT_PORT'] || '8080'),
