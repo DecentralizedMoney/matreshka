@@ -146,7 +146,7 @@ export class OpportunityScanner extends EventEmitter {
     const buyExchange = sortedByAsk[0]; // Lowest ask (buy here)
     const sellExchange = sortedByBid[0]; // Highest bid (sell here)
 
-    if (buyExchange.exchange === sellExchange.exchange) {
+    if (!buyExchange || !sellExchange || buyExchange.exchange === sellExchange.exchange) {
       return; // Same exchange, no arbitrage
     }
 
@@ -582,10 +582,14 @@ export class OpportunityScanner extends EventEmitter {
     for (const base of bases) {
       for (let i = 0; i < symbols.length; i++) {
         for (let j = i + 1; j < symbols.length; j++) {
-          const intermediate = symbols[i].split('/')[0];
-          const quote = symbols[j].split('/')[0];
+          const symbolI = symbols[i];
+          const symbolJ = symbols[j];
+          if (!symbolI || !symbolJ) continue;
           
-          if (intermediate !== quote && intermediate !== base && quote !== base) {
+          const intermediate = symbolI.split('/')[0];
+          const quote = symbolJ.split('/')[0];
+          
+          if (intermediate && quote && intermediate !== quote && intermediate !== base && quote !== base) {
             combinations.push([base, intermediate, quote]);
           }
         }
@@ -609,7 +613,9 @@ export class OpportunityScanner extends EventEmitter {
     if (this.activeOpportunities.size >= this.MAX_OPPORTUNITIES) {
       // Remove oldest opportunity
       const oldestId = Array.from(this.activeOpportunities.keys())[0];
-      this.activeOpportunities.delete(oldestId);
+      if (oldestId) {
+        this.activeOpportunities.delete(oldestId);
+      }
     }
 
     this.activeOpportunities.set(opportunity.id, opportunity);

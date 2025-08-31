@@ -32,7 +32,7 @@ export class Logger {
     const transports: winston.transport[] = [
       // Console transport
       new winston.transports.Console({
-        level: process.env.LOG_LEVEL || 'info',
+        level: process.env['LOG_LEVEL'] || 'info',
         format: winston.format.combine(
           winston.format.colorize(),
           logFormat
@@ -41,7 +41,7 @@ export class Logger {
     ];
 
     // File transports
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env['NODE_ENV'] === 'production') {
       transports.push(
         new winston.transports.File({
           filename: path.join('logs', 'error.log'),
@@ -60,7 +60,7 @@ export class Logger {
     }
 
     return winston.createLogger({
-      level: process.env.LOG_LEVEL || 'info',
+      level: process.env['LOG_LEVEL'] || 'info',
       format: logFormat,
       transports,
       exitOnError: false

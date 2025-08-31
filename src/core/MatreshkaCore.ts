@@ -16,14 +16,14 @@ export class MatreshkaCore extends EventEmitter {
   private isRunning: boolean = false;
 
   // Core managers
-  private exchangeManager: ExchangeManager;
-  private marketDataManager: MarketDataManager;
-  private opportunityScanner: OpportunityScanner;
-  private executionEngine: ExecutionEngine;
-  private riskManager: RiskManager;
-  private portfolioManager: PortfolioManager;
-  private hummingbotConnector: HummingbotConnector;
-  private performanceTracker: PerformanceTracker;
+  private exchangeManager!: ExchangeManager;
+  private marketDataManager!: MarketDataManager;
+  private opportunityScanner!: OpportunityScanner;
+  private executionEngine!: ExecutionEngine;
+  private riskManager!: RiskManager;
+  private portfolioManager!: PortfolioManager;
+  private hummingbotConnector!: HummingbotConnector;
+  private performanceTracker!: PerformanceTracker;
 
   private heartbeatInterval?: NodeJS.Timeout;
   private mainLoopInterval?: NodeJS.Timeout;

@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { MatreshkaCore } from './core/MatreshkaCore';
 import { MatreshkaConfig } from './types';
 import { Logger } from './utils/Logger';
+import { WebMonitor } from './web/WebMonitor';
 
 // Load environment variables
 dotenv.config();
@@ -16,8 +17,8 @@ const defaultConfig: MatreshkaConfig = {
       enabled: true,
       weight: 2,
       credentials: {
-        apiKey: process.env.WHITEBIT_API_KEY || '',
-        apiSecret: process.env.WHITEBIT_API_SECRET || ''
+        apiKey: process.env['WHITEBIT_API_KEY'] || '',
+        apiSecret: process.env['WHITEBIT_API_SECRET'] || ''
       },
       limits: {
         maxPositionUSD: 10000,
@@ -29,8 +30,8 @@ const defaultConfig: MatreshkaConfig = {
       enabled: true,
       weight: 3,
       credentials: {
-        apiKey: process.env.BINANCE_API_KEY || '',
-        apiSecret: process.env.BINANCE_API_SECRET || ''
+        apiKey: process.env['BINANCE_API_KEY'] || '',
+        apiSecret: process.env['BINANCE_API_SECRET'] || ''
       },
       limits: {
         maxPositionUSD: 50000,
@@ -42,8 +43,8 @@ const defaultConfig: MatreshkaConfig = {
       enabled: true,
       weight: 5,
       credentials: {
-        apiKey: process.env.BINANCE_FUTURES_API_KEY || '',
-        apiSecret: process.env.BINANCE_FUTURES_API_SECRET || ''
+        apiKey: process.env['BINANCE_FUTURES_API_KEY'] || '',
+        apiSecret: process.env['BINANCE_FUTURES_API_SECRET'] || ''
       },
       limits: {
         maxPositionUSD: 25000,
@@ -55,9 +56,9 @@ const defaultConfig: MatreshkaConfig = {
       enabled: true,
       weight: 2,
       credentials: {
-        apiKey: process.env.OKX_API_KEY || '',
-        apiSecret: process.env.OKX_API_SECRET || '',
-        passphrase: process.env.OKX_PASSPHRASE || ''
+        apiKey: process.env['OKX_API_KEY'] || '',
+        apiSecret: process.env['OKX_API_SECRET'] || '',
+        passphrase: process.env['OKX_PASSPHRASE'] || ''
       },
       limits: {
         maxPositionUSD: 20000,
@@ -169,9 +170,9 @@ const defaultConfig: MatreshkaConfig = {
       }
     ],
     communication: {
-      host: process.env.HUMMINGBOT_HOST || 'localhost',
-      port: parseInt(process.env.HUMMINGBOT_PORT || '8080'),
-      apiKey: process.env.HUMMINGBOT_API_KEY || 'default-api-key'
+      host: process.env['HUMMINGBOT_HOST'] || 'localhost',
+      port: parseInt(process.env['HUMMINGBOT_PORT'] || '8080'),
+      apiKey: process.env['HUMMINGBOT_API_KEY'] || 'default-api-key'
     }
   }
 };
@@ -182,29 +183,53 @@ async function main() {
 
     // Get mode from command line arguments
     const mode = process.argv.includes('--mode=monitor') ? 'monitor' : 'execute';
+    const webEnabled = !process.argv.includes('--no-web');
+    const webPort = parseInt(process.env['WEB_PORT'] || '3001');
+    
     logger.info(`Running in ${mode} mode`);
+    if (webEnabled) {
+      logger.info(`Web interface will be available at http://localhost:${webPort}`);
+    }
 
     // Create and start Matreshka core
     const matreshka = new MatreshkaCore(defaultConfig);
+
+    // Create web monitor if enabled
+    let webMonitor: WebMonitor | null = null;
+    if (webEnabled) {
+      webMonitor = new WebMonitor(matreshka, webPort);
+    }
 
     // Set up event handlers
     setupEventHandlers(matreshka);
 
     // Handle graceful shutdown
-    process.on('SIGINT', async () => {
-      logger.info('Received SIGINT, shutting down gracefully...');
+    const shutdown = async () => {
+      logger.info('Shutting down gracefully...');
+      
+      if (webMonitor) {
+        await webMonitor.stop();
+      }
+      
       await matreshka.stop();
       process.exit(0);
-    });
+    };
 
-    process.on('SIGTERM', async () => {
-      logger.info('Received SIGTERM, shutting down gracefully...');
-      await matreshka.stop();
-      process.exit(0);
-    });
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
 
     // Start the system
     await matreshka.start();
+
+    // Start web monitor
+    if (webMonitor) {
+      try {
+        await webMonitor.start();
+        logger.info(`🌐 Web dashboard: http://localhost:${webPort}`);
+      } catch (error) {
+        logger.warn('Failed to start web monitor:', error);
+      }
+    }
 
     if (mode === 'monitor') {
       // In monitor mode, just observe and log

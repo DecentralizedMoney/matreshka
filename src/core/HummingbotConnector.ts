@@ -24,7 +24,7 @@ interface HummingbotResponse {
 export class HummingbotConnector extends EventEmitter {
   private config: HummingbotConfig;
   private logger: Logger;
-  private isConnected: boolean = false;
+  private connected: boolean = false;
   
   private websockets: Map<string, WebSocket> = new Map();
   private instances: Map<string, HummingbotInstance> = new Map();
@@ -56,7 +56,7 @@ export class HummingbotConnector extends EventEmitter {
       this.startHeartbeat();
       this.startStatusCheck();
       
-      this.isConnected = true;
+      this.connected = true;
       this.logger.info(`Connected to ${this.instances.size} Hummingbot instances`);
       
     } catch (error) {
@@ -69,7 +69,7 @@ export class HummingbotConnector extends EventEmitter {
     try {
       this.logger.info('Disconnecting from Hummingbot instances...');
       
-      this.isConnected = false;
+      this.connected = false;
       
       // Stop intervals
       if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
@@ -122,7 +122,7 @@ export class HummingbotConnector extends EventEmitter {
         
         // Attempt to reconnect after delay
         setTimeout(() => {
-          if (this.isConnected) {
+          if (this.connected) {
             this.connectToInstance(instance);
           }
         }, 5000);
@@ -527,7 +527,7 @@ export class HummingbotConnector extends EventEmitter {
   }
 
   public isConnected(): boolean {
-    return this.isConnected && this.websockets.size > 0;
+    return this.connected && this.websockets.size > 0;
   }
 
   public getConnectionStatus(): { connected: number; total: number } {
