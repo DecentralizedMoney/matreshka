@@ -8,6 +8,9 @@ import { PortfolioManager } from './PortfolioManager';
 import { HummingbotConnector } from './HummingbotConnector';
 import { MarketDataManager } from './MarketDataManager';
 import { PerformanceTracker } from './PerformanceTracker';
+import { DemoDataProvider } from './DemoDataProvider';
+import { AdvancedScanner } from './AdvancedScanner';
+import { NotificationSystem } from './NotificationSystem';
 import { Logger } from '../utils/Logger';
 
 export class MatreshkaCore extends EventEmitter {
@@ -24,6 +27,9 @@ export class MatreshkaCore extends EventEmitter {
   private portfolioManager!: PortfolioManager;
   private hummingbotConnector!: HummingbotConnector;
   private performanceTracker!: PerformanceTracker;
+  private demoDataProvider!: DemoDataProvider;
+  private advancedScanner!: AdvancedScanner;
+  private notificationSystem!: NotificationSystem;
 
   private heartbeatInterval?: NodeJS.Timeout;
   private mainLoopInterval?: NodeJS.Timeout;
@@ -46,6 +52,9 @@ export class MatreshkaCore extends EventEmitter {
     this.portfolioManager = new PortfolioManager(this.config.portfolio, this.exchangeManager);
     this.hummingbotConnector = new HummingbotConnector(this.config.hummingbot);
     this.performanceTracker = new PerformanceTracker();
+    this.demoDataProvider = new DemoDataProvider();
+    this.advancedScanner = new AdvancedScanner();
+    this.notificationSystem = new NotificationSystem();
 
     // Initialize scanners and engines
     this.opportunityScanner = new OpportunityScanner(
@@ -93,6 +102,9 @@ export class MatreshkaCore extends EventEmitter {
     // Hummingbot events
     this.hummingbotConnector.on('strategyUpdate', this.handleStrategyUpdate.bind(this));
     this.hummingbotConnector.on('hummingbotError', this.handleHummingbotError.bind(this));
+
+    // Advanced scanner events
+    this.advancedScanner.on('patternsDetected', this.handlePatternsDetected.bind(this));
   }
 
   public async start(): Promise<void> {
@@ -105,9 +117,22 @@ export class MatreshkaCore extends EventEmitter {
 
       // Start all managers in sequence
       await this.exchangeManager.initialize();
-      await this.marketDataManager.start();
+      
+      // Check if we should use demo mode
+      const isDemoMode = process.env['DEMO_MODE'] === 'true' || !process.env['BINANCE_API_KEY'];
+      if (isDemoMode) {
+        this.logger.info('🎭 Starting in DEMO mode with simulated data');
+        this.demoDataProvider.start();
+      } else {
+        await this.marketDataManager.start();
+      }
+      
       await this.portfolioManager.initialize();
       await this.hummingbotConnector.connect();
+      
+      // Start advanced systems
+      this.advancedScanner.start();
+      this.notificationSystem.start();
 
       // Start core processes
       this.startOpportunityScanning();
@@ -137,6 +162,9 @@ export class MatreshkaCore extends EventEmitter {
       // Stop all managers
       await this.opportunityScanner.stop();
       await this.executionEngine.stop();
+      this.advancedScanner.stop();
+      this.notificationSystem.stop();
+      this.demoDataProvider.stop();
       await this.marketDataManager.stop();
       await this.hummingbotConnector.disconnect();
       await this.exchangeManager.cleanup();
@@ -200,6 +228,9 @@ export class MatreshkaCore extends EventEmitter {
   // Event handlers
   private async handleOpportunityFound(opportunity: ArbitrageOpportunity): Promise<void> {
     this.logger.info(`New arbitrage opportunity found: ${opportunity.id}, profit: ${opportunity.profitPercent.toFixed(4)}%`);
+    
+    // Send notification
+    this.notificationSystem.notifyOpportunity(opportunity);
 
     // Risk assessment
     const riskApproval = await this.riskManager.assessOpportunity(opportunity);
@@ -230,23 +261,29 @@ export class MatreshkaCore extends EventEmitter {
   private handleExecutionStarted(execution: ArbitrageExecution): void {
     this.logger.info(`Execution started: ${execution.opportunityId}`);
     this.performanceTracker.recordExecutionStart(execution);
+    this.notificationSystem.notifyExecution(execution, 'started');
     this.emit('executionStarted', execution);
   }
 
   private handleExecutionCompleted(execution: ArbitrageExecution): void {
     this.logger.info(`Execution completed: ${execution.opportunityId}, profit: $${execution.totalProfit.toFixed(2)}`);
     this.performanceTracker.recordExecutionComplete(execution);
+    this.notificationSystem.notifyExecution(execution, 'completed');
     this.emit('executionCompleted', execution);
   }
 
   private handleExecutionFailed(execution: ArbitrageExecution, error: Error): void {
     this.logger.error(`Execution failed: ${execution.opportunityId}`, error);
     this.performanceTracker.recordExecutionFailure(execution, error);
+    this.notificationSystem.notifyExecution(execution, 'failed');
     this.emit('executionFailed', { execution, error });
   }
 
   private async handleRiskLimitExceeded(limit: string, value: number): Promise<void> {
     this.logger.warn(`Risk limit exceeded: ${limit} = ${value}`);
+    
+    // Send risk alert notification
+    this.notificationSystem.notifyRiskAlert({ limit, value, threshold: value * 0.8 });
     
     // Temporarily pause opportunity scanning
     this.opportunityScanner.pause();
@@ -263,6 +300,9 @@ export class MatreshkaCore extends EventEmitter {
 
   private async handleEmergencyStop(): Promise<void> {
     this.logger.error('EMERGENCY STOP TRIGGERED');
+    
+    // Send emergency notification
+    this.notificationSystem.notifyEmergency('Emergency stop has been triggered! All trading activities are being halted.');
     
     try {
       // Stop all active executions
@@ -327,6 +367,12 @@ export class MatreshkaCore extends EventEmitter {
   private handleHummingbotError(instanceId: string, error: Error): void {
     this.logger.error(`Hummingbot error in ${instanceId}:`, error);
     this.emit('hummingbotError', { instanceId, error, timestamp: new Date() });
+  }
+
+  private handlePatternsDetected(patterns: any[]): void {
+    this.logger.info(`🔍 Detected ${patterns.length} market patterns`);
+    this.notificationSystem.notifyPatternDetected(patterns);
+    this.emit('patternsDetected', patterns);
   }
 
   // Public API methods
