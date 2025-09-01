@@ -18,6 +18,22 @@ export class ExchangeManager extends EventEmitter {
   public async initialize(): Promise<void> {
     this.logger.info('Initializing exchange connections...');
     
+    // Check if we're in demo mode
+    const isDemoMode = process.env['DEMO_MODE'] === 'true' || !process.env['BINANCE_API_KEY'];
+    
+    if (isDemoMode) {
+      this.logger.info('🎭 Running in DEMO mode - simulating exchange connections');
+      // Simulate successful connections for all configured exchanges
+      for (const exchangeConfig of this.config) {
+        if (!exchangeConfig.enabled) continue;
+        this.connectionStatus.set(exchangeConfig.id, true);
+        this.logger.info(`✅ Simulated connection to ${exchangeConfig.id}`);
+      }
+      this.logger.info(`🎯 Demo mode: ${this.connectionStatus.size} simulated exchange connections`);
+      return;
+    }
+    
+    // Real mode - actual exchange connections
     for (const exchangeConfig of this.config) {
       if (!exchangeConfig.enabled) continue;
       

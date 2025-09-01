@@ -1,26 +1,31 @@
 import { EventEmitter } from 'events';
 import { ExchangeManager } from './ExchangeManager';
+import { DemoDataProvider } from './DemoDataProvider';
 import { Ticker, OrderBook } from '../types';
 import { Logger } from '../utils/Logger';
 import * as ccxt from 'ccxt';
 
 export class MarketDataManager extends EventEmitter {
   private exchangeManager: ExchangeManager;
+  private demoDataProvider?: DemoDataProvider;
   private logger: Logger;
   private tickers: Map<string, Ticker> = new Map();
   private orderbooks: Map<string, OrderBook> = new Map();
   private updateIntervals: Map<string, NodeJS.Timeout> = new Map();
   private isStarted: boolean = false;
+  private isDemoMode: boolean = false;
 
   // Configuration
   private readonly TICKER_UPDATE_INTERVAL = 5000; // 5 seconds
   private readonly ORDERBOOK_UPDATE_INTERVAL = 2000; // 2 seconds
   private readonly SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'XRP/USDT'];
 
-  constructor(exchangeManager: ExchangeManager) {
+  constructor(exchangeManager: ExchangeManager, demoDataProvider?: DemoDataProvider) {
     super();
     this.exchangeManager = exchangeManager;
+    this.demoDataProvider = demoDataProvider;
     this.logger = new Logger('MarketDataManager');
+    this.isDemoMode = process.env['DEMO_MODE'] === 'true' || !process.env['BINANCE_API_KEY'];
   }
 
   public async start(): Promise<void> {
@@ -32,12 +37,17 @@ export class MarketDataManager extends EventEmitter {
     this.logger.info('Starting market data manager...');
     this.isStarted = true;
 
-    // Start real-time data updates
-    this.startTickerUpdates();
-    this.startOrderBookUpdates();
-    
-    // Initial data fetch
-    await this.fetchInitialData();
+    if (this.isDemoMode && this.demoDataProvider) {
+      this.logger.info('🎭 Using demo data provider for market data');
+      // Demo mode doesn't need real updates, demo provider handles it
+    } else {
+      // Start real-time data updates
+      this.startTickerUpdates();
+      this.startOrderBookUpdates();
+      
+      // Initial data fetch
+      await this.fetchInitialData();
+    }
     
     this.logger.info('✅ Market data manager started successfully');
   }
@@ -198,20 +208,34 @@ export class MarketDataManager extends EventEmitter {
   }
 
   public async getTicker(symbol: string, exchange: string): Promise<Ticker | null> {
+    if (this.isDemoMode && this.demoDataProvider) {
+      return this.demoDataProvider.getTicker(symbol, exchange);
+    }
+    
     const key = `${exchange}:${symbol}`;
     return this.tickers.get(key) || null;
   }
 
   public async getOrderBook(symbol: string, exchange: string): Promise<OrderBook | null> {
+    if (this.isDemoMode && this.demoDataProvider) {
+      return this.demoDataProvider.getOrderBook(symbol, exchange);
+    }
+    
     const key = `${exchange}:${symbol}`;
     return this.orderbooks.get(key) || null;
   }
 
   public getAvailableSymbols(): string[] {
+    if (this.isDemoMode && this.demoDataProvider) {
+      return this.demoDataProvider.getAvailableSymbols();
+    }
     return this.SYMBOLS;
   }
 
   public getConnectedExchanges(): string[] {
+    if (this.isDemoMode && this.demoDataProvider) {
+      return this.demoDataProvider.getAvailableExchanges();
+    }
     const exchanges = ['binance', 'whitebit', 'okx'];
     return exchanges.filter(exchangeId => this.exchangeManager.isConnected(exchangeId));
   }

@@ -47,12 +47,12 @@ export class MatreshkaCore extends EventEmitter {
 
     // Initialize all core managers
     this.exchangeManager = new ExchangeManager(this.config.exchanges);
-    this.marketDataManager = new MarketDataManager(this.exchangeManager);
+    this.demoDataProvider = new DemoDataProvider();
+    this.marketDataManager = new MarketDataManager(this.exchangeManager, this.demoDataProvider);
     this.riskManager = new RiskManager(this.config.risk);
     this.portfolioManager = new PortfolioManager(this.config.portfolio, this.exchangeManager);
     this.hummingbotConnector = new HummingbotConnector(this.config.hummingbot);
     this.performanceTracker = new PerformanceTracker();
-    this.demoDataProvider = new DemoDataProvider();
     this.advancedScanner = new AdvancedScanner();
     this.notificationSystem = new NotificationSystem();
 
