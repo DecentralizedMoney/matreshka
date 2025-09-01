@@ -165,7 +165,7 @@ export interface ExchangeConfig {
 export interface StrategyConfig {
   name: string;
   enabled: boolean;
-  type: 'simple_arbitrage' | 'triangular' | 'funding_rate' | 'volatility';
+  type: 'simple_arbitrage' | 'triangular' | 'funding_rate' | 'volatility' | 'oil_arbitrage' | 'oil_spread';
   params: Record<string, any>;
   exchanges: string[];
   symbols: string[];
