@@ -7,7 +7,7 @@ import * as ccxt from 'ccxt';
 
 export class MarketDataManager extends EventEmitter {
   private exchangeManager: ExchangeManager;
-  private demoDataProvider?: DemoDataProvider;
+  private demoDataProvider: DemoDataProvider | undefined;
   private logger: Logger;
   private tickers: Map<string, Ticker> = new Map();
   private orderbooks: Map<string, OrderBook> = new Map();
