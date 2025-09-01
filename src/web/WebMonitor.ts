@@ -175,17 +175,32 @@ export class WebMonitor {
       this.io.emit('systemStatus', status);
     });
 
+    // Oil arbitrage events
+    this.matreshka.on('oilOpportunityFound', (opportunity) => {
+      this.io.emit('oilOpportunityFound', opportunity);
+    });
+
+    this.matreshka.on('oilExecutionStarted', (execution) => {
+      this.io.emit('oilExecutionStarted', execution);
+    });
+
+    this.matreshka.on('oilExecutionCompleted', (execution) => {
+      this.io.emit('oilExecutionCompleted', execution);
+    });
+
     // Send periodic updates
     setInterval(async () => {
       try {
         const status = await this.matreshka.getSystemStatus();
         const opportunities = this.matreshka.getActiveOpportunities();
         const executions = this.matreshka.getActiveExecutions();
+        const oilData = this.matreshka.getOilMarketData();
 
         this.io.emit('periodicUpdate', {
           status,
           opportunities,
           executions,
+          oilData,
           timestamp: new Date()
         });
       } catch (error) {
