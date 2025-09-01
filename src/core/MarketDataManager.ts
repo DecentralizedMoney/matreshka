@@ -67,7 +67,7 @@ export class MarketDataManager extends EventEmitter {
           await this.updateTicker(symbol, exchangeId);
           await this.updateOrderBook(symbol, exchangeId);
         } catch (error) {
-          this.logger.debug(`Failed to fetch initial data for ${symbol} on ${exchangeId}:`, error instanceof Error ? error : undefined, { error: String(error) });
+          this.logger.debug(`Failed to fetch initial data for ${symbol} on ${exchangeId}:`, { errorMessage: String(error) });
         }
       }
     }
@@ -111,7 +111,7 @@ export class MarketDataManager extends EventEmitter {
         try {
           await this.updateTicker(symbol, exchangeId);
         } catch (error) {
-          this.logger.debug(`Failed to update ticker ${symbol} on ${exchangeId}:`, error instanceof Error ? error : undefined, { error: String(error) });
+          this.logger.debug(`Failed to update ticker ${symbol} on ${exchangeId}:`, { errorMessage: String(error) });
         }
       }
     }
@@ -129,7 +129,7 @@ export class MarketDataManager extends EventEmitter {
         try {
           await this.updateOrderBook(symbol, exchangeId);
         } catch (error) {
-          this.logger.debug(`Failed to update orderbook ${symbol} on ${exchangeId}:`, error instanceof Error ? error : undefined, { error: String(error) });
+          this.logger.debug(`Failed to update orderbook ${symbol} on ${exchangeId}:`, { errorMessage: String(error) });
         }
       }
     }

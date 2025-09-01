@@ -123,7 +123,7 @@ export class OpportunityScanner extends EventEmitter {
             exchangeData.push({ exchange: exchangeId, ticker, orderbook });
           }
         } catch (error) {
-          this.logger.debug(`Failed to get data for ${symbol} on ${exchangeId}:`, error instanceof Error ? error : undefined, { error: String(error) });
+          this.logger.debug(`Failed to get data for ${symbol} on ${exchangeId}:`, { errorMessage: String(error) });
         }
       }
 
@@ -233,7 +233,7 @@ export class OpportunityScanner extends EventEmitter {
             this.addOpportunity(opportunity);
           }
         } catch (error) {
-          this.logger.debug(`Triangular arbitrage scan failed for ${exchangeId}:`, error instanceof Error ? error : undefined, { error: String(error) });
+          this.logger.debug(`Triangular arbitrage scan failed for ${exchangeId}:`, { errorMessage: String(error) });
         }
       }
     }
@@ -393,7 +393,7 @@ export class OpportunityScanner extends EventEmitter {
               this.addOpportunity(opportunity);
             }
           } catch (error) {
-            this.logger.debug('Funding rate arbitrage scan failed:', error instanceof Error ? error : undefined, { error: String(error) });
+            this.logger.debug('Funding rate arbitrage scan failed:', { errorMessage: String(error) });
           }
         }
       }

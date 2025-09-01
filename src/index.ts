@@ -101,7 +101,7 @@ async function main() {
         await webMonitor.start();
         logger.info(`🌐 Web dashboard: http://localhost:${webPort}`);
       } catch (error) {
-        logger.warn('Failed to start web monitor:', error instanceof Error ? error : undefined, { error: String(error) });
+        logger.warn('Failed to start web monitor:', { errorMessage: String(error) });
       }
     }
 
@@ -231,7 +231,7 @@ function startExecuteMode(matreshka: MatreshkaCore) {
       logger.info(`💼 Portfolio update - Total value: $${portfolio.totalValue || 'N/A'}`);
       
     } catch (error) {
-      logger.debug('Error getting portfolio status:', error instanceof Error ? error : undefined, { error: String(error) });
+      logger.debug('Error getting portfolio status:', { errorMessage: String(error) });
     }
   }, 60000); // Every minute
 }
