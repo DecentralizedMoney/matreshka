@@ -67,7 +67,7 @@ export interface Ticker {
 
 export interface ArbitrageOpportunity {
   id: string;
-  type: 'simple' | 'triangular' | 'cross_exchange' | 'perpetual_spot';
+  type: 'simple' | 'triangular' | 'cross_exchange' | 'perpetual_spot' | 'oil_arbitrage' | 'oil_spread';
   profit: number;
   profitPercent: number;
   volume: number;
