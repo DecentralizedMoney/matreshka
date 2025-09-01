@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+coverage/
+.nyc_output/
+*.log
+*.tgz
+*.tar.gz
+.DS_Store
+.env*
+!.env.example
+docker-compose.override.yml
+*.d.ts
+*.js.map
+*.d.ts.map
+package-lock.json
+yarn.lock

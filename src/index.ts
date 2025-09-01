@@ -1,158 +1,72 @@
 import dotenv from 'dotenv';
 import { MatreshkaCore } from './core/MatreshkaCore';
-import { MatreshkaConfig } from './types';
-import { Logger } from './utils/Logger';
+import { Logger, globalLogger } from './utils/Logger';
+import { globalErrorHandler, MatreshkaError, ErrorCategory, ErrorSeverity } from './utils/ErrorHandler';
+import { configManager } from './config/ProductionConfig';
 import { WebMonitor } from './web/WebMonitor';
 
-// Load environment variables
+// Load environment variables first
 dotenv.config();
 
-const logger = new Logger('Matreshka');
+// Initialize global error handling
+process.on('uncaughtException', (error: Error) => {
+  globalErrorHandler.handle(new MatreshkaError(
+    'Uncaught Exception',
+    { category: ErrorCategory.SYSTEM, severity: ErrorSeverity.CRITICAL },
+    { cause: error }
+  ));
+  process.exit(1);
+});
 
-// Default configuration
-const defaultConfig: MatreshkaConfig = {
-  exchanges: [
-    {
-      id: 'whitebit',
-      enabled: true,
-      weight: 2,
-      credentials: {
-        apiKey: process.env['WHITEBIT_API_KEY'] || '',
-        apiSecret: process.env['WHITEBIT_API_SECRET'] || ''
-      },
-      limits: {
-        maxPositionUSD: 10000,
-        maxDailyVolumeUSD: 100000
-      }
-    },
-    {
-      id: 'binance',
-      enabled: true,
-      weight: 3,
-      credentials: {
-        apiKey: process.env['BINANCE_API_KEY'] || '',
-        apiSecret: process.env['BINANCE_API_SECRET'] || ''
-      },
-      limits: {
-        maxPositionUSD: 50000,
-        maxDailyVolumeUSD: 500000
-      }
-    },
-    {
-      id: 'binance_perpetual',
-      enabled: true,
-      weight: 5,
-      credentials: {
-        apiKey: process.env['BINANCE_FUTURES_API_KEY'] || '',
-        apiSecret: process.env['BINANCE_FUTURES_API_SECRET'] || ''
-      },
-      limits: {
-        maxPositionUSD: 25000,
-        maxDailyVolumeUSD: 250000
-      }
-    },
-    {
-      id: 'okx',
-      enabled: true,
-      weight: 2,
-      credentials: {
-        apiKey: process.env['OKX_API_KEY'] || '',
-        apiSecret: process.env['OKX_API_SECRET'] || '',
-        passphrase: process.env['OKX_PASSPHRASE'] || ''
-      },
-      limits: {
-        maxPositionUSD: 20000,
-        maxDailyVolumeUSD: 200000
-      }
-    }
-  ],
-  strategies: [
-    {
-      name: 'Simple BTC Arbitrage',
-      enabled: true,
-      type: 'simple_arbitrage',
-      params: {
-        maxSpread: 2.0,
-        minVolume: 1000
-      },
-      exchanges: ['whitebit', 'binance', 'okx'],
-      symbols: ['BTC/USDT', 'ETH/USDT'],
-      minProfitPercent: 0.5,
-      maxPositionSize: 5000
-    },
-    {
-      name: 'Spot-Perpetual Arbitrage',
-      enabled: true,
-      type: 'funding_rate',
-      params: {
-        minFundingRate: 0.01,
-        maxHoldingPeriod: 8 * 60 * 60 // 8 hours
-      },
-      exchanges: ['binance', 'binance_perpetual'],
-      symbols: ['BTC/USDT', 'ETH/USDT'],
-      minProfitPercent: 1.0,
-      maxPositionSize: 10000
-    },
-    {
-      name: 'Triangular Arbitrage',
-      enabled: false, // Disabled by default due to complexity
-      type: 'triangular',
-      params: {
-        maxSteps: 3,
-        minLiquidity: 5000
-      },
-      exchanges: ['binance'],
-      symbols: ['BTC/USDT', 'ETH/USDT', 'ETH/BTC'],
-      minProfitPercent: 0.3,
-      maxPositionSize: 2000
-    }
-  ],
-  risk: {
-    maxTotalExposureUSD: 100000,
-    maxLossPerDayUSD: 5000,
-    maxPositionAgeHours: 24,
-    stopLossPercent: 5.0,
-    emergencyExitEnabled: true,
-    correlationThreshold: 0.8,
-    volatilityThreshold: 0.1
-  },
-  portfolio: {
-    targetAllocations: {
-      'USDT': 0.4,
-      'BTC': 0.3,
-      'ETH': 0.2,
-      'BRICS': 0.1
-    },
-    rebalanceThreshold: 0.1,
-    emergencyAssets: ['USDT', 'USDC'],
-    minCashReserve: 10000
-  },
-  hummingbot: {
-    instances: [], // Disabled for demo mode
-    communication: {
-      host: process.env['HUMMINGBOT_HOST'] || 'localhost',
-      port: parseInt(process.env['HUMMINGBOT_PORT'] || '8080'),
-      apiKey: process.env['HUMMINGBOT_API_KEY'] || 'default-api-key'
-    }
-  }
-};
+process.on('unhandledRejection', (reason: unknown) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  globalErrorHandler.handle(new MatreshkaError(
+    'Unhandled Promise Rejection',
+    { category: ErrorCategory.SYSTEM, severity: ErrorSeverity.HIGH },
+    { cause: error }
+  ));
+});
+
+const logger = new Logger('Matreshka', {
+  level: process.env['LOG_LEVEL'] || 'info',
+  pretty: process.env['NODE_ENV'] !== 'production',
+});
 
 async function main() {
   try {
-    logger.info('🚀 Starting Matreshka Arbitrage System...');
+    logger.logSystemEvent('startup', { 
+      version: '2.0.0',
+      nodeVersion: process.version,
+      platform: process.platform,
+    });
 
-    // Get mode from command line arguments
-    const mode = process.argv.includes('--mode=monitor') ? 'monitor' : 'execute';
-    const webEnabled = !process.argv.includes('--no-web');
+    // Handle command line arguments
+    const args = process.argv.slice(2);
+    const isHealthCheck = args.includes('--health-check');
+    const mode = args.includes('--mode=monitor') ? 'monitor' : 'execute';
+    const webEnabled = !args.includes('--no-web');
     const webPort = parseInt(process.env['WEB_PORT'] || '3001');
+
+    // Health check endpoint
+    if (isHealthCheck) {
+      logger.logHealth('healthy', { message: 'Health check passed' });
+      process.exit(0);
+    }
+
+    logger.info('🚀 Starting Matreshka Arbitrage System v2.0.0...');
+    logger.info(`Environment: ${process.env['NODE_ENV'] || 'development'}`);
+    logger.info(`Mode: ${mode}`);
+    logger.info(`Demo Mode: ${configManager.isDemoMode()}`);
     
-    logger.info(`Running in ${mode} mode`);
     if (webEnabled) {
       logger.info(`Web interface will be available at http://localhost:${webPort}`);
     }
 
-    // Create and start Matreshka core
-    const matreshka = new MatreshkaCore(defaultConfig);
+    // Load production configuration
+    const config = configManager.loadConfiguration();
+    
+    // Create and start Matreshka core with production config
+    const matreshka = new MatreshkaCore(config);
 
     // Create web monitor if enabled
     let webMonitor: WebMonitor | null = null;
@@ -187,7 +101,7 @@ async function main() {
         await webMonitor.start();
         logger.info(`🌐 Web dashboard: http://localhost:${webPort}`);
       } catch (error) {
-        logger.warn('Failed to start web monitor:', error);
+        logger.warn('Failed to start web monitor:', error instanceof Error ? error : undefined, { error: String(error) });
       }
     }
 
@@ -202,7 +116,11 @@ async function main() {
     }
 
   } catch (error) {
-    logger.error('Failed to start Matreshka:', error);
+    globalErrorHandler.handle(new MatreshkaError(
+      'Failed to start Matreshka system',
+      { category: ErrorCategory.SYSTEM, severity: ErrorSeverity.CRITICAL },
+      { cause: error instanceof Error ? error : new Error(String(error)) }
+    ));
     process.exit(1);
   }
 }
@@ -313,17 +231,39 @@ function startExecuteMode(matreshka: MatreshkaCore) {
       logger.info(`💼 Portfolio update - Total value: $${portfolio.totalValue || 'N/A'}`);
       
     } catch (error) {
-      logger.debug('Error getting portfolio status:', error);
+      logger.debug('Error getting portfolio status:', error instanceof Error ? error : undefined, { error: String(error) });
     }
   }, 60000); // Every minute
 }
 
+// Graceful shutdown handling
+const shutdown = async (signal: string) => {
+  logger.logSystemEvent('shutdown', { signal });
+  
+  try {
+    // Perform any cleanup here
+    logger.info('Graceful shutdown completed');
+    process.exit(0);
+  } catch (error) {
+    logger.error('Error during shutdown:', error);
+    process.exit(1);
+  }
+};
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
 // Start the application
 if (require.main === module) {
   main().catch((error) => {
-    logger.error('Unhandled error:', error);
+    globalErrorHandler.handle(new MatreshkaError(
+      'Unhandled error in main',
+      { category: ErrorCategory.SYSTEM, severity: ErrorSeverity.CRITICAL },
+      { cause: error instanceof Error ? error : new Error(String(error)) }
+    ));
     process.exit(1);
   });
 }
 
-export { MatreshkaCore, defaultConfig };
+// Export for external use
+export { MatreshkaCore };

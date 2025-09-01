@@ -267,7 +267,7 @@ export class HummingbotConnector extends EventEmitter {
       
       return response.data;
     } catch (error) {
-      this.logger.debug(`Status check failed for ${instanceId}:`, error);
+      this.logger.debug(`Status check failed for ${instanceId}:`, error instanceof Error ? error : undefined, { error: String(error) });
       return null;
     }
   }

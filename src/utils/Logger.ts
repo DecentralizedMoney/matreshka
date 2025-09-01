@@ -1,111 +1,214 @@
-import winston from 'winston';
-import path from 'path';
+import pino from 'pino';
+import { resolve } from 'path';
+import { mkdirSync, existsSync } from 'fs';
+
+export interface LoggerOptions {
+  level?: string;
+  context?: string;
+  pretty?: boolean;
+  enableFileLogging?: boolean;
+}
 
 export class Logger {
-  private logger: winston.Logger;
-  private component: string;
+  private logger: pino.Logger;
+  private context: string;
 
-  constructor(component: string) {
-    this.component = component;
-    this.logger = this.createLogger();
-  }
+  constructor(context: string = 'Default', options: LoggerOptions = {}) {
+    this.context = context;
+    
+    // Ensure logs directory exists
+    const logsDir = resolve(process.cwd(), 'logs');
+    if (!existsSync(logsDir)) {
+      mkdirSync(logsDir, { recursive: true });
+    }
 
-  private createLogger(): winston.Logger {
-    const logFormat = winston.format.combine(
-      winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
-      winston.format.errors({ stack: true }),
-      winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
-        let log = `${timestamp} [${this.component}] ${level.toUpperCase()}: ${message}`;
-        
-        if (Object.keys(meta).length > 0) {
-          try {
-            log += ` ${JSON.stringify(meta, (key, value) => {
-              // Handle circular references and complex objects
-              if (value instanceof Error) {
-                return { name: value.name, message: value.message };
-              }
-              if (typeof value === 'object' && value !== null) {
-                if (value.constructor && value.constructor.name === 'Agent') {
-                  return '[HTTP Agent]';
-                }
-                if (value.constructor && value.constructor.name === 'ClientRequest') {
-                  return '[HTTP Request]';
-                }
-              }
-              return value;
-            })}`;
-          } catch (err) {
-            log += ` [Complex Object]`;
-          }
-        }
-        
-        if (stack) {
-          log += `\n${stack}`;
-        }
-        
-        return log;
-      })
-    );
+    const level = options.level || process.env['LOG_LEVEL'] || 'info';
+    const isDevelopment = process.env['NODE_ENV'] !== 'production';
+    const enablePretty = options.pretty ?? isDevelopment;
 
-    const transports: winston.transport[] = [
-      // Console transport
-      new winston.transports.Console({
-        level: process.env['LOG_LEVEL'] || 'info',
-        format: winston.format.combine(
-          winston.format.colorize(),
-          logFormat
-        )
-      })
-    ];
-
-    // File transports
-    if (process.env['NODE_ENV'] === 'production') {
-      transports.push(
-        new winston.transports.File({
-          filename: path.join('logs', 'error.log'),
-          level: 'error',
-          format: logFormat,
-          maxsize: 10 * 1024 * 1024, // 10MB
-          maxFiles: 5
+    // Base logger configuration
+    const loggerConfig: pino.LoggerOptions = {
+      level,
+      base: {
+        context: this.context,
+        pid: process.pid,
+        hostname: require('os').hostname(),
+      },
+      timestamp: pino.stdTimeFunctions.isoTime,
+      formatters: {
+        level: (label) => ({ level: label }),
+        bindings: (bindings) => ({
+          pid: bindings['pid'],
+          hostname: bindings['hostname'],
         }),
-        new winston.transports.File({
-          filename: path.join('logs', 'combined.log'),
-          format: logFormat,
-          maxsize: 50 * 1024 * 1024, // 50MB
-          maxFiles: 10
-        })
-      );
+      },
+    };
+
+    // Configure transport for pretty printing in development
+    if (enablePretty) {
+      loggerConfig.transport = {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'yyyy-mm-dd HH:MM:ss',
+          ignore: 'pid,hostname',
+          messageFormat: '[{context}] {msg}',
+          singleLine: false,
+        },
+      };
     }
 
-    return winston.createLogger({
-      level: process.env['LOG_LEVEL'] || 'info',
-      format: logFormat,
-      transports,
-      exitOnError: false
-    });
-  }
+    // Create multi-stream logger for production
+    if (!enablePretty && (options.enableFileLogging ?? true)) {
+      const streams: pino.StreamEntry[] = [
+        {
+          level: 'info',
+          stream: process.stdout,
+        },
+        {
+          level: 'error',
+          stream: pino.destination({
+            dest: resolve(logsDir, 'error.log'),
+            sync: false,
+            mkdir: true,
+          }),
+        },
+        {
+          level: 'info',
+          stream: pino.destination({
+            dest: resolve(logsDir, 'combined.log'),
+            sync: false,
+            mkdir: true,
+          }),
+        },
+      ];
 
-  public info(message: string, meta?: any): void {
-    this.logger.info(message, meta);
-  }
-
-  public warn(message: string, meta?: any): void {
-    this.logger.warn(message, meta);
-  }
-
-  public error(message: string, error?: Error | any): void {
-    if (error instanceof Error) {
-      this.logger.error(message, { error: error.message, stack: error.stack });
+      this.logger = pino(loggerConfig, pino.multistream(streams));
     } else {
-      this.logger.error(message, error);
+      this.logger = pino(loggerConfig);
     }
   }
 
-  public debug(message: string, meta?: any): void {
-    this.logger.debug(message, meta);
+  info(message: string, meta?: Record<string, unknown>): void {
+    this.logger.info(meta, message);
   }
 
-  public verbose(message: string, meta?: any): void {
-    this.logger.verbose(message, meta);
+  error(message: string, error?: Error | unknown, meta?: Record<string, unknown>): void {
+    const errorInfo = error instanceof Error 
+      ? { 
+          error: error.message, 
+          stack: error.stack,
+          name: error.name,
+        }
+      : { error };
+    
+    this.logger.error({ ...errorInfo, ...meta }, message);
+  }
+
+  warn(message: string, meta?: Record<string, unknown>): void {
+    this.logger.warn(meta, message);
+  }
+
+  debug(message: string, meta?: Record<string, unknown>): void {
+    this.logger.debug(meta, message);
+  }
+
+  verbose(message: string, meta?: Record<string, unknown>): void {
+    this.logger.trace(meta, message);
+  }
+
+  trace(message: string, meta?: Record<string, unknown>): void {
+    this.logger.trace(meta, message);
+  }
+
+  fatal(message: string, error?: Error | unknown, meta?: Record<string, unknown>): void {
+    const errorInfo = error instanceof Error 
+      ? { 
+          error: error.message, 
+          stack: error.stack,
+          name: error.name,
+        }
+      : { error };
+    
+    this.logger.fatal({ ...errorInfo, ...meta }, message);
+  }
+
+  child(bindings: Record<string, unknown>): Logger {
+    const childLogger = new Logger(this.context);
+    childLogger.logger = this.logger.child(bindings);
+    return childLogger;
+  }
+
+  // Performance optimized logging methods
+  time(label: string): void {
+    this.logger.info(`⏱️ Timer started: ${label}`);
+  }
+
+  timeEnd(label: string, meta?: Record<string, unknown>): void {
+    this.logger.info(meta, `⏱️ Timer ended: ${label}`);
+  }
+
+  // Structured logging for trading events
+  logTrade(action: string, data: Record<string, unknown>): void {
+    this.logger.info({ 
+      type: 'trade',
+      action,
+      ...data 
+    }, `📈 Trade ${action}`);
+  }
+
+  logOpportunity(data: Record<string, unknown>): void {
+    this.logger.info({ 
+      type: 'opportunity',
+      ...data 
+    }, '🎯 Arbitrage opportunity detected');
+  }
+
+  logSystemEvent(event: string, data?: Record<string, unknown>): void {
+    this.logger.info({ 
+      type: 'system',
+      event,
+      ...data 
+    }, `🔧 System event: ${event}`);
+  }
+
+  logPerformance(metrics: Record<string, unknown>): void {
+    this.logger.info({ 
+      type: 'performance',
+      ...metrics 
+    }, '📊 Performance metrics');
+  }
+
+  // Health check logging
+  logHealth(status: 'healthy' | 'unhealthy', details?: Record<string, unknown>): void {
+    const level = status === 'healthy' ? 'info' : 'warn';
+    this.logger[level]({ 
+      type: 'health',
+      status,
+      ...details 
+    }, `💓 Health check: ${status}`);
   }
 }
+
+// Global logger instance
+export const globalLogger = new Logger('Global', {
+  enableFileLogging: true,
+});
+
+// Singleton pattern for logger factory
+class LoggerFactory {
+  private loggers = new Map<string, Logger>();
+
+  getLogger(context: string, options?: LoggerOptions): Logger {
+    if (!this.loggers.has(context)) {
+      this.loggers.set(context, new Logger(context, options));
+    }
+    return this.loggers.get(context)!;
+  }
+
+  clearCache(): void {
+    this.loggers.clear();
+  }
+}
+
+export const loggerFactory = new LoggerFactory();

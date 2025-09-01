@@ -133,7 +133,7 @@ export class ExchangeManager extends EventEmitter {
           await exchange.close();
         }
       } catch (error) {
-        this.logger.warn(`Error closing ${exchangeId}:`, error);
+        this.logger.warn(`Error closing ${exchangeId}:`, error instanceof Error ? error : undefined, { error: String(error) });
       }
     }
     
