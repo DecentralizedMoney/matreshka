@@ -269,3 +269,57 @@ export interface ErrorLog {
   source: string;
   stack?: string;
 }
+
+// Oil Trading Types
+export interface OilContract {
+  symbol: string;
+  type: 'spot' | 'futures' | 'options';
+  exchange: string;
+  deliveryMonth?: string; // YYYY-MM format
+  contractSize: number; // barrels
+  tickSize: number; // minimum price increment
+  lastPrice: number;
+  bid: number;
+  ask: number;
+  volume: number;
+  openInterest: number;
+  settlementPrice: number;
+  timestamp: number;
+}
+
+export interface OilSpread {
+  id: string;
+  type: 'calendar' | 'crack' | 'location' | 'quality';
+  longContract: OilContract;
+  shortContract: OilContract;
+  spreadValue: number;
+  historicalAverage: number;
+  volatility: number;
+  liquidity: number;
+  opportunities: OilArbitrageOpportunity[];
+}
+
+export interface OilArbitrageOpportunity {
+  id: string;
+  type: 'calendar_spread' | 'crack_spread' | 'location_arbitrage' | 'quality_arbitrage';
+  profit: number;
+  profitPercent: number;
+  volume: number;
+  contracts: OilContract[];
+  strategy: string;
+  riskLevel: 'low' | 'medium' | 'high';
+  estimatedDuration: number;
+  confidence: number;
+  created: Date;
+  expires: Date;
+}
+
+export interface OilMarketData {
+  brent: OilContract;
+  wti: OilContract;
+  spreads: OilSpread[];
+  arbitrageOpportunities: OilArbitrageOpportunity[];
+  marketSentiment: 'bullish' | 'bearish' | 'neutral';
+  volatilityIndex: number;
+  contango: number; // positive = contango, negative = backwardation
+}

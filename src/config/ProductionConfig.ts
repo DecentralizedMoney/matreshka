@@ -276,6 +276,38 @@ export class ConfigurationManager {
       });
     }
 
+    // Oil Arbitrage Strategy
+    strategies.push({
+      name: 'Oil Calendar Spread Arbitrage',
+      enabled: true,
+      type: 'oil_arbitrage' as const,
+      params: {
+        maxSpread: parseFloat(process.env['OIL_ARB_MAX_SPREAD'] || '1.0'),
+        minVolume: parseInt(process.env['OIL_ARB_MIN_VOLUME'] || '1000'),
+        contracts: ['BRENT-2024-01', 'BRENT-2024-02', 'WTI-2024-01', 'WTI-2024-02'],
+      },
+      exchanges: (process.env['OIL_ARB_EXCHANGES'] || 'ICE,NYMEX').split(','),
+      symbols: (process.env['OIL_ARB_SYMBOLS'] || 'BRENT,WTI').split(','),
+      minProfitPercent: parseFloat(process.env['OIL_ARB_MIN_PROFIT'] || '0.8'),
+      maxPositionSize: parseInt(process.env['OIL_ARB_MAX_POSITION'] || '10000'),
+    });
+
+    // Oil Spread Strategy
+    strategies.push({
+      name: 'Oil Location Arbitrage',
+      enabled: true,
+      type: 'oil_spread' as const,
+      params: {
+        maxSpread: parseFloat(process.env['OIL_SPREAD_MAX_SPREAD'] || '2.0'),
+        minVolume: parseInt(process.env['OIL_SPREAD_MIN_VOLUME'] || '1000'),
+        spreadTypes: ['calendar', 'location', 'crack'],
+      },
+      exchanges: (process.env['OIL_SPREAD_EXCHANGES'] || 'ICE,NYMEX').split(','),
+      symbols: (process.env['OIL_SPREAD_SYMBOLS'] || 'BRENT,WTI').split(','),
+      minProfitPercent: parseFloat(process.env['OIL_SPREAD_MIN_PROFIT'] || '1.2'),
+      maxPositionSize: parseInt(process.env['OIL_SPREAD_MAX_POSITION'] || '15000'),
+    });
+
     return strategies;
   }
 

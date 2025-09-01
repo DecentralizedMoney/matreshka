@@ -11,6 +11,7 @@ import { PerformanceTracker } from './PerformanceTracker';
 import { DemoDataProvider } from './DemoDataProvider';
 import { AdvancedScanner } from './AdvancedScanner';
 import { NotificationSystem } from './NotificationSystem';
+import { OilArbitrageEngine } from './OilArbitrageEngine';
 import { Logger } from '../utils/Logger';
 
 export class MatreshkaCore extends EventEmitter {
@@ -30,6 +31,7 @@ export class MatreshkaCore extends EventEmitter {
   private demoDataProvider!: DemoDataProvider;
   private advancedScanner!: AdvancedScanner;
   private notificationSystem!: NotificationSystem;
+  private oilArbitrageEngine!: OilArbitrageEngine;
 
   private heartbeatInterval?: NodeJS.Timeout;
   private mainLoopInterval?: NodeJS.Timeout;
@@ -55,6 +57,12 @@ export class MatreshkaCore extends EventEmitter {
     this.performanceTracker = new PerformanceTracker();
     this.advancedScanner = new AdvancedScanner();
     this.notificationSystem = new NotificationSystem();
+
+    // Initialize oil arbitrage engine
+    this.oilArbitrageEngine = new OilArbitrageEngine(
+      this.config.strategies,
+      this.riskManager
+    );
 
     // Initialize scanners and engines
     this.opportunityScanner = new OpportunityScanner(
@@ -105,6 +113,13 @@ export class MatreshkaCore extends EventEmitter {
 
     // Advanced scanner events
     this.advancedScanner.on('patternsDetected', this.handlePatternsDetected.bind(this));
+
+    // Oil arbitrage events
+    this.oilArbitrageEngine.on('oilEngineStarted', this.handleOilEngineStarted.bind(this));
+    this.oilArbitrageEngine.on('oilEngineStopped', this.handleOilEngineStopped.bind(this));
+    this.oilArbitrageEngine.on('oilOpportunityFound', this.handleOilOpportunityFound.bind(this));
+    this.oilArbitrageEngine.on('oilExecutionStarted', this.handleOilExecutionStarted.bind(this));
+    this.oilArbitrageEngine.on('oilExecutionCompleted', this.handleOilExecutionCompleted.bind(this));
   }
 
   public async start(): Promise<void> {
@@ -133,6 +148,9 @@ export class MatreshkaCore extends EventEmitter {
       // Start advanced systems
       this.advancedScanner.start();
       this.notificationSystem.start();
+
+      // Start oil arbitrage engine
+      this.oilArbitrageEngine.start();
 
       // Start core processes
       this.startOpportunityScanning();
@@ -164,6 +182,7 @@ export class MatreshkaCore extends EventEmitter {
       await this.executionEngine.stop();
       this.advancedScanner.stop();
       this.notificationSystem.stop();
+      this.oilArbitrageEngine.stop();
       this.demoDataProvider.stop();
       await this.marketDataManager.stop();
       await this.hummingbotConnector.disconnect();
@@ -408,5 +427,44 @@ export class MatreshkaCore extends EventEmitter {
 
   public isSystemRunning(): boolean {
     return this.isRunning;
+  }
+
+  // Oil arbitrage methods
+  public getOilMarketData(): any {
+    return this.oilArbitrageEngine.getOilMarketData();
+  }
+
+  public getOilOpportunities(): any[] {
+    return this.oilArbitrageEngine.getActiveOpportunities();
+  }
+
+  public executeOilOpportunity(opportunityId: string): boolean {
+    return this.oilArbitrageEngine.executeOpportunity(opportunityId);
+  }
+
+  // Oil arbitrage event handlers
+  private handleOilEngineStarted(): void {
+    this.logger.info('🛢️ Oil arbitrage engine started');
+    this.emit('oilEngineStarted');
+  }
+
+  private handleOilEngineStopped(): void {
+    this.logger.info('🛢️ Oil arbitrage engine stopped');
+    this.emit('oilEngineStopped');
+  }
+
+  private handleOilOpportunityFound(opportunity: any): void {
+    this.logger.info(`🎯 Oil opportunity found: ${opportunity.type}, profit: $${opportunity.profit.toFixed(2)}`);
+    this.emit('oilOpportunityFound', opportunity);
+  }
+
+  private handleOilExecutionStarted(opportunity: any): void {
+    this.logger.info(`🚀 Oil execution started: ${opportunity.id}, strategy: ${opportunity.strategy}`);
+    this.emit('oilExecutionStarted', opportunity);
+  }
+
+  private handleOilExecutionCompleted(execution: any): void {
+    this.logger.info(`✅ Oil execution completed: ${execution.opportunityId}, profit: $${execution.profit.toFixed(2)}`);
+    this.emit('oilExecutionCompleted', execution);
   }
 }

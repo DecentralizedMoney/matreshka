@@ -74,6 +74,37 @@ export class WebMonitor {
       }
     });
 
+    // Oil market data endpoint
+    this.app.get('/api/oil/market-data', (req, res) => {
+      try {
+        const oilData = this.matreshka.getOilMarketData();
+        res.json(oilData);
+      } catch (error) {
+        res.status(500).json({ error: 'Failed to get oil market data' });
+      }
+    });
+
+    // Oil opportunities endpoint
+    this.app.get('/api/oil/opportunities', (req, res) => {
+      try {
+        const opportunities = this.matreshka.getOilOpportunities();
+        res.json(opportunities);
+      } catch (error) {
+        res.status(500).json({ error: 'Failed to get oil opportunities' });
+      }
+    });
+
+    // Execute oil opportunity endpoint
+    this.app.post('/api/oil/execute/:opportunityId', (req, res) => {
+      try {
+        const { opportunityId } = req.params;
+        const success = this.matreshka.executeOilOpportunity(opportunityId);
+        res.json({ success, opportunityId });
+      } catch (error) {
+        res.status(500).json({ error: 'Failed to execute oil opportunity' });
+      }
+    });
+
     // Emergency stop endpoint
     this.app.post('/api/emergency-stop', async (req, res) => {
       try {
