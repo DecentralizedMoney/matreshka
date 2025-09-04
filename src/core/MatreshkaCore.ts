@@ -12,6 +12,7 @@ import { DemoDataProvider } from './DemoDataProvider';
 import { AdvancedScanner } from './AdvancedScanner';
 import { NotificationSystem } from './NotificationSystem';
 import { OilArbitrageEngine } from './OilArbitrageEngine';
+import { ErrorCollector } from './ErrorCollector';
 import { Logger } from '../utils/Logger';
 
 export class MatreshkaCore extends EventEmitter {
@@ -32,6 +33,7 @@ export class MatreshkaCore extends EventEmitter {
   private advancedScanner!: AdvancedScanner;
   private notificationSystem!: NotificationSystem;
   private oilArbitrageEngine!: OilArbitrageEngine;
+  private errorCollector!: ErrorCollector;
 
   private heartbeatInterval?: NodeJS.Timeout;
   private mainLoopInterval?: NodeJS.Timeout;
@@ -48,6 +50,7 @@ export class MatreshkaCore extends EventEmitter {
     this.logger.info('Initializing Matreshka system managers...');
 
     // Initialize all core managers
+    this.errorCollector = new ErrorCollector();
     this.exchangeManager = new ExchangeManager(this.config.exchanges);
     this.demoDataProvider = new DemoDataProvider();
     this.marketDataManager = new MarketDataManager(this.exchangeManager, this.demoDataProvider);
@@ -400,11 +403,45 @@ export class MatreshkaCore extends EventEmitter {
       uptime: process.uptime(),
       activeConnections: this.exchangeManager.getActiveConnections(),
       lastHeartbeat: new Date(),
-      errors: [], // TODO: Implement error collection
+      errors: this.errorCollector.getRecentErrors(24),
       performance: this.performanceTracker.getMetrics(),
       memoryUsage: process.memoryUsage(),
       cpuUsage: process.cpuUsage().user / 1000000 // Convert to seconds
     };
+  }
+
+  /**
+   * Get error collector instance
+   */
+  public getErrorCollector(): ErrorCollector {
+    return this.errorCollector;
+  }
+
+  /**
+   * Collect an error
+   */
+  public collectError(
+    level: 'error' | 'warning' | 'critical',
+    component: string,
+    message: string,
+    stack?: string,
+    context?: Record<string, any>
+  ) {
+    return this.errorCollector.collectError(level, component, message, stack, context);
+  }
+
+  /**
+   * Get error statistics
+   */
+  public getErrorStats() {
+    return this.errorCollector.getErrorStats();
+  }
+
+  /**
+   * Get system health
+   */
+  public getSystemHealth() {
+    return this.errorCollector.getSystemHealth();
   }
 
   public getActiveOpportunities(): ArbitrageOpportunity[] {
